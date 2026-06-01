@@ -220,9 +220,19 @@ class Game {
     // Floating score text
     this.floatTexts = [];
 
+    // Particles
+    this.particles = [];
+
     // Screen shake
     this.shakeAmount = 0;
     this.shakeDecay = 0.85;
+
+    // Level transition
+    this.levelTransition = 0;
+    this.transitionText = '';
+
+    // High score
+    this.highScore = parseInt(localStorage.getItem('tankHighScore') || '0', 10);
 
     // Cheat codes
     this.cheatBuffer = [];
@@ -302,6 +312,23 @@ class Game {
 
   addExplosion(x, y, color = '#ff6600', size = 20) {
     this.explosions.push({ x, y, life: 12, maxLife: 12, color, size });
+    // Spawn particles
+    const count = Math.floor(size * 0.8);
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1 + Math.random() * 3;
+      const pSize = 2 + Math.random() * (size * 0.2);
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 15 + Math.floor(Math.random() * 15),
+        maxLife: 30,
+        color: Math.random() < 0.5 ? color : '#ffaa00',
+        size: pSize,
+        gravity: 0.05,
+      });
+    }
     // Screen shake proportional to explosion size
     if (size > 20) {
       this.shakeAmount = Math.max(this.shakeAmount, Math.min(size / 6, 8));
@@ -326,6 +353,24 @@ class Game {
     }
   }
 
+  updateParticles() {
+    // Update explosions
+    for (const exp of this.explosions) {
+      exp.life--;
+    }
+    this.explosions = this.explosions.filter(e => e.life > 0);
+    // Update particles
+    for (const p of this.particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += p.gravity || 0;
+      p.vx *= 0.97;
+      p.vy *= 0.97;
+      p.life--;
+    }
+    this.particles = this.particles.filter(p => p.life > 0);
+  }
+
   updateCombo(hit) {
     if (hit) {
       this.combo++;
@@ -346,11 +391,25 @@ class Game {
 
   update() {
     if (this.gameOver || this.paused) return;
+
+    // Level transition countdown
+    if (this.levelTransition > 0) {
+      this.levelTransition--;
+      if (this.levelTransition <= 0) {
+        this.levelTransition = 0;
+        // First frame after transition — update UI
+        this.updateUI();
+      }
+      this.updateParticles();
+      return;
+    }
+
     this.frameCount++;
 
     // ---- Update Player ----
     if (this.player.alive) {
       this.player.cooldown = Math.max(0, this.player.cooldown - 1);
+      if (this.player.invincible > 0) this.player.invincible--;
 
       let moving = false;
       if (keys['ArrowUp']) { this.player.dir = DIR.UP; moving = true; }
@@ -477,7 +536,7 @@ class Game {
         }
       } else {
         // Enemy bullet hits player
-        if (this.player.alive && !this.godMode && rectsOverlap(
+        if (this.player.alive && !this.godMode && !this.player.invincible && rectsOverlap(
             { x: bx1, y: by1, w: bullet.size, h: bullet.size },
             { x: this.player.x, y: this.player.y, w: this.player.size, h: this.player.size })) {
           bullet.alive = false;
@@ -508,6 +567,7 @@ class Game {
         if (canMoveTo(newTank, spawnX, spawnY, this.map, this.bullets, [this.player, ...aliveEnemies], this.base)) {
           this.player = newTank;
           this.player.alive = true;
+          this.player.invincible = 40; // ~0.67s invincibility
         }
       }
     }
@@ -528,11 +588,8 @@ class Game {
       return;
     }
 
-    // ---- Update Explosions ----
-    for (const exp of this.explosions) {
-      exp.life--;
-    }
-    this.explosions = this.explosions.filter(e => e.life > 0);
+    // ---- Update Particles & Explosions ----
+    this.updateParticles();
 
     // ---- Update Floating Texts ----
     for (const ft of this.floatTexts) {
@@ -548,15 +605,19 @@ class Game {
     this.level++;
     this.map = createLevel(this.level);
     this.player = new Tank(8 * TILE, (ROWS - 3) * TILE, DIR.UP, true);
+    this.player.invincible = 60;
     this.enemies = [];
     this.bullets = [];
     this.explosions = [];
+    this.particles = [];
     this.enemiesSpawned = 0;
     this.enemiesKilled = 0;
     this.spawnQueue = [];
     this.spawnTimer = 0;
     this.combo = 0;
     this.comboTimer = 0;
+    this.transitionText = `STAGE ${this.level}`;
+    this.levelTransition = 90;
     for (let i = 0; i < this.enemiesTotal; i++) {
       this.spawnQueue.push(i);
     }
@@ -572,10 +633,18 @@ class Game {
   endGame(won) {
     this.gameOver = true;
     this.won = won;
+    // Save high score
+    if (this.score > this.highScore) {
+      this.highScore = this.score;
+      localStorage.setItem('tankHighScore', String(this.highScore));
+    }
     document.getElementById('game-over-overlay').classList.remove('hidden');
     document.getElementById('result-title').textContent = won ? '🎉 胜利！' : '💀 游戏结束';
     document.getElementById('final-score').textContent = this.score;
     document.getElementById('max-combo-display').textContent = this.maxCombo;
+    document.getElementById('kills-display').textContent = this.enemiesKilled;
+    document.getElementById('level-display-end').textContent = this.level;
+    document.getElementById('high-score-display').textContent = this.highScore;
     document.getElementById('restart-btn').textContent = '重新开始';
   }
 
@@ -666,6 +735,8 @@ class Game {
     // Draw tanks
     const drawTank = (tank, color, accent) => {
       if (!tank.alive) return;
+      // Invincible blink effect (skip every 4 frames)
+      if (tank.invincible && Math.floor(this.frameCount / 3) % 2 === 0) return;
       const x = tank.x, y = tank.y, s = tank.size;
       const cx = x + s / 2, cy = y + s / 2;
       
@@ -728,6 +799,20 @@ class Game {
       ctx.globalAlpha = 1;
     }
 
+    // Draw particles
+    for (const p of this.particles) {
+      const progress = 1 - p.life / p.maxLife;
+      ctx.globalAlpha = 1 - progress;
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 4;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * (1 - progress * 0.5), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    ctx.globalAlpha = 1;
+
     // Draw floating texts
     for (const ft of this.floatTexts) {
       const progress = 1 - ft.life / ft.maxLife;
@@ -741,6 +826,24 @@ class Game {
       ctx.shadowBlur = 0;
     }
     ctx.globalAlpha = 1;
+
+    // Draw level transition
+    if (this.levelTransition > 0) {
+      const progress = 1 - this.levelTransition / 90;
+      ctx.globalAlpha = progress < 0.2 ? progress * 5 : (this.levelTransition < 30 ? this.levelTransition / 30 : 1);
+      ctx.fillStyle = '#f8d56b';
+      ctx.font = 'bold 52px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#f8d56b';
+      ctx.shadowBlur = 20;
+      ctx.fillText(this.transitionText, canvas.width / 2, canvas.height / 2 - 10);
+      ctx.font = '20px sans-serif';
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = '#b0bec5';
+      ctx.fillText('准备战斗！', canvas.width / 2, canvas.height / 2 + 40);
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+    }
 
     // Draw "GOD MODE" indicator
     if (this.godMode) {
@@ -771,6 +874,8 @@ function startGame() {
   document.getElementById('cheat-badge').classList.remove('active');
   game = new Game();
   game.updateUI();
+  // Display high score
+  document.getElementById('highscore-display').textContent = game.highScore;
   window.game = game; // Expose for debugging
 }
 
@@ -824,6 +929,10 @@ document.addEventListener('keyup', (e) => {
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('restart-btn').addEventListener('click', startGame);
   document.getElementById('play-again-btn').addEventListener('click', startGame);
+
+  // ---- Load high score ----
+  const hs = parseInt(localStorage.getItem('tankHighScore') || '0', 10);
+  document.getElementById('highscore-display').textContent = hs;
 
   // ---- Start ----
   startGame();
