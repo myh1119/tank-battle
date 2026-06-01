@@ -18,6 +18,7 @@ const DY = [-1, 0, 1, 0];
 
 // ---- Game State ----
 let game = null;
+const keys = {};
 
 // ---- Map Definitions ----
 function createLevel(level) {
@@ -242,32 +243,7 @@ class Game {
     }
 
     window.game = this; // Expose for debugging
-
-    // Input
-    this.keys = {};
-    document.addEventListener('keydown', (e) => {
-      this.keys[e.key] = true;
-      if (e.key === 'p' || e.key === 'P') this.paused = !this.paused;
-      // Cheat code detector
-      if (e.key.length === 1) {
-        this.cheatBuffer.push(e.key.toUpperCase());
-        if (this.cheatBuffer.length > 5) this.cheatBuffer.shift();
-        const buf = this.cheatBuffer.join('');
-        for (const [code, _] of Object.entries(this.cheats)) {
-          if (buf.endsWith(code)) {
-            this.activateCheat(code);
-            this.cheatBuffer = [];
-          }
-        }
-      }
-
-      if ((e.key === ' ' || e.key === 'j' || e.key === 'J') && !this.gameOver) {
-        this.playerShoot();
-      }
-    });
-    document.addEventListener('keyup', (e) => {
-      this.keys[e.key] = false;
-    });
+    window.keys = keys;
   }
 
   spawnEnemy() {
@@ -377,10 +353,10 @@ class Game {
       this.player.cooldown = Math.max(0, this.player.cooldown - 1);
 
       let moving = false;
-      if (this.keys['ArrowUp']) { this.player.dir = DIR.UP; moving = true; }
-      else if (this.keys['ArrowDown']) { this.player.dir = DIR.DOWN; moving = true; }
-      else if (this.keys['ArrowLeft']) { this.player.dir = DIR.LEFT; moving = true; }
-      else if (this.keys['ArrowRight']) { this.player.dir = DIR.RIGHT; moving = true; }
+      if (keys['ArrowUp']) { this.player.dir = DIR.UP; moving = true; }
+      else if (keys['ArrowDown']) { this.player.dir = DIR.DOWN; moving = true; }
+      else if (keys['ArrowLeft']) { this.player.dir = DIR.LEFT; moving = true; }
+      else if (keys['ArrowRight']) { this.player.dir = DIR.RIGHT; moving = true; }
 
       if (moving) {
         const allTanks = [this.player, ...this.enemies.filter(e => e.alive)];
@@ -523,10 +499,16 @@ class Game {
         this.endGame(false);
         return;
       }
-      // Respawn after delay
+      // Respawn after delay — with collision check
       if (this.frameCount % 60 === 0) {
-        this.player = new Tank(8 * TILE, (ROWS - 3) * TILE, DIR.UP, true);
-        this.player.alive = true;
+        const spawnX = 8 * TILE;
+        const spawnY = (ROWS - 3) * TILE;
+        const newTank = new Tank(spawnX, spawnY, DIR.UP, true);
+        const aliveEnemies = this.enemies.filter(e => e.alive);
+        if (canMoveTo(newTank, spawnX, spawnY, this.map, this.bullets, [this.player, ...aliveEnemies], this.base)) {
+          this.player = newTank;
+          this.player.alive = true;
+        }
       }
     }
 
@@ -573,12 +555,18 @@ class Game {
     this.enemiesKilled = 0;
     this.spawnQueue = [];
     this.spawnTimer = 0;
+    this.combo = 0;
+    this.comboTimer = 0;
     for (let i = 0; i < this.enemiesTotal; i++) {
       this.spawnQueue.push(i);
     }
     const baseX = Math.floor(COLS / 2) - 1;
     const baseY = ROWS - 2;
     this.base = new Base(baseX * TILE, baseY * TILE);
+    // Keep godMode active but refresh badge
+    const badge = document.getElementById('cheat-badge');
+    if (this.godMode) badge.classList.add('active');
+    else badge.classList.remove('active');
   }
 
   endGame(won) {
@@ -796,10 +784,48 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-// ---- Event Listeners ----
-document.getElementById('restart-btn').addEventListener('click', startGame);
-document.getElementById('play-again-btn').addEventListener('click', startGame);
+// ---- Input (registered once, outside Game constructor) ----
+document.addEventListener('keydown', (e) => {
+  const g = window.game;
+  if (!g) return;
 
-// ---- Start ----
-startGame();
-gameLoop();
+  // Prevent browser defaults for game keys
+  if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'p', 'P', 'j', 'J'].includes(e.key)) {
+    e.preventDefault();
+  }
+
+  keys[e.key] = true;
+
+  if (e.key === 'p' || e.key === 'P') g.paused = !g.paused;
+
+  // Cheat code detector
+  if (e.key.length === 1) {
+    g.cheatBuffer.push(e.key.toUpperCase());
+    if (g.cheatBuffer.length > 5) g.cheatBuffer.shift();
+    const buf = g.cheatBuffer.join('');
+    for (const [code] of Object.entries(g.cheats)) {
+      if (buf.endsWith(code)) {
+        g.activateCheat(code);
+        g.cheatBuffer = [];
+      }
+    }
+  }
+
+  if ((e.key === ' ' || e.key === 'j' || e.key === 'J') && !g.gameOver) {
+    g.playerShoot();
+  }
+});
+
+document.addEventListener('keyup', (e) => {
+  keys[e.key] = false;
+});
+
+// ---- Event Listeners ----
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('restart-btn').addEventListener('click', startGame);
+  document.getElementById('play-again-btn').addEventListener('click', startGame);
+
+  // ---- Start ----
+  startGame();
+  gameLoop();
+});
