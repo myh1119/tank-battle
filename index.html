@@ -27,6 +27,10 @@
           <span class="label">敌人数</span>
           <span id="enemies-display">20</span>
         </div>
+        <div class="info-row combo-row">
+          <span class="label">🔥 连击</span>
+          <span id="combo-display">0</span>
+        </div>
       </div>
       <div class="controls-panel">
         <h3>操作</h3>
@@ -38,10 +42,12 @@
     </div>
     <div id="canvas-container">
       <canvas id="gameCanvas"></canvas>
+      <div id="cheat-badge">⚡ GOD MODE</div>
       <div id="game-over-overlay" class="hidden">
         <div class="overlay-content">
           <h2 id="result-title">游戏结束</h2>
           <p>得分: <span id="final-score">0</span></p>
+          <p>最高连击: <span id="max-combo-display">0</span>x</p>
           <button id="play-again-btn">再来一局</button>
         </div>
       </div>

@@ -209,6 +209,25 @@ class Game {
     this.frameCount = 0;
     this.spawnTimer = 0;
 
+    // Combo system
+    this.combo = 0;
+    this.maxCombo = 0;
+    this.comboTimer = 0;
+    this.comboDecay = 180;  // frames before combo resets
+    this.comboMultiplier = () => 1 + Math.floor(this.combo / 3) * 0.5;
+
+    // Floating score text
+    this.floatTexts = [];
+
+    // Screen shake
+    this.shakeAmount = 0;
+    this.shakeDecay = 0.85;
+
+    // Cheat codes
+    this.cheatBuffer = [];
+    this.godMode = false;
+    this.cheats = { 'GOD': 'godMode' };
+
     // Base
     const baseX = Math.floor(COLS / 2) - 1;
     const baseY = ROWS - 2;
@@ -229,6 +248,19 @@ class Game {
     document.addEventListener('keydown', (e) => {
       this.keys[e.key] = true;
       if (e.key === 'p' || e.key === 'P') this.paused = !this.paused;
+      // Cheat code detector
+      if (e.key.length === 1) {
+        this.cheatBuffer.push(e.key.toUpperCase());
+        if (this.cheatBuffer.length > 5) this.cheatBuffer.shift();
+        const buf = this.cheatBuffer.join('');
+        for (const [code, _] of Object.entries(this.cheats)) {
+          if (buf.endsWith(code)) {
+            this.activateCheat(code);
+            this.cheatBuffer = [];
+          }
+        }
+      }
+
       if ((e.key === ' ' || e.key === 'j' || e.key === 'J') && !this.gameOver) {
         this.playerShoot();
       }
@@ -294,6 +326,46 @@ class Game {
 
   addExplosion(x, y, color = '#ff6600', size = 20) {
     this.explosions.push({ x, y, life: 12, maxLife: 12, color, size });
+    // Screen shake proportional to explosion size
+    if (size > 20) {
+      this.shakeAmount = Math.max(this.shakeAmount, Math.min(size / 6, 8));
+    }
+  }
+
+  addFloatText(x, y, text, color = '#ffdd44') {
+    this.floatTexts.push({ x, y, text, color, life: 60, maxLife: 60 });
+  }
+
+  activateCheat(code) {
+    if (code === 'GOD') {
+      this.godMode = !this.godMode;
+      const badge = document.getElementById('cheat-badge');
+      if (this.godMode) {
+        badge.classList.add('active');
+        this.addFloatText(COLS * TILE / 2, ROWS * TILE / 2, '☠️ GOD MODE', '#ff4444');
+      } else {
+        badge.classList.remove('active');
+        this.addFloatText(COLS * TILE / 2, ROWS * TILE / 2, '😇 凡人模式', '#88ff88');
+      }
+    }
+  }
+
+  updateCombo(hit) {
+    if (hit) {
+      this.combo++;
+      this.comboTimer = this.comboDecay;
+      if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+      // Update combo UI with pop effect
+      const el = document.getElementById('combo-display');
+      el.textContent = `${this.combo}x`;
+      el.classList.remove('combo-pop');
+      void el.offsetWidth; // reflow
+      el.classList.add('combo-pop');
+    } else {
+      this.combo = 0;
+      this.comboTimer = 0;
+      document.getElementById('combo-display').textContent = '0';
+    }
   }
 
   update() {
@@ -318,6 +390,14 @@ class Game {
           this.player.x = nx;
           this.player.y = ny;
         }
+      }
+    }
+
+    // ---- Combo Decay ----
+    if (this.combo > 0) {
+      this.comboTimer--;
+      if (this.comboTimer <= 0) {
+        this.updateCombo(false);
       }
     }
 
@@ -406,20 +486,29 @@ class Game {
             bullet.alive = false;
             enemy.alive = false;
             this.enemiesKilled++;
-            this.score += 100;
+            // Combo scoring
+            this.updateCombo(true);
+            const multiplier = this.comboMultiplier();
+            const baseScore = Math.floor(100 * multiplier);
+            this.score += baseScore;
             this.addExplosion(enemy.cx, enemy.cy, '#ff4400', 30);
             this.addExplosion(enemy.cx - 5, enemy.cy - 5, '#ff8800', 15);
+            // Floating score text
+            const label = multiplier > 1 ? `+${baseScore} (${multiplier.toFixed(1)}x)` : `+${baseScore}`;
+            this.addFloatText(enemy.cx, enemy.cy - 10, label, '#ffdd44');
             break;
           }
         }
       } else {
         // Enemy bullet hits player
-        if (this.player.alive && rectsOverlap(
+        if (this.player.alive && !this.godMode && rectsOverlap(
             { x: bx1, y: by1, w: bullet.size, h: bullet.size },
             { x: this.player.x, y: this.player.y, w: this.player.size, h: this.player.size })) {
           bullet.alive = false;
           this.player.alive = false;
           this.addExplosion(this.player.cx, this.player.cy, '#ff6600', 35);
+          this.addFloatText(this.player.cx, this.player.cy - 20, '💥 连击中断!', '#ff4444');
+          this.updateCombo(false);
         }
       }
     }
@@ -463,6 +552,12 @@ class Game {
     }
     this.explosions = this.explosions.filter(e => e.life > 0);
 
+    // ---- Update Floating Texts ----
+    for (const ft of this.floatTexts) {
+      ft.life--;
+    }
+    this.floatTexts = this.floatTexts.filter(f => f.life > 0);
+
     // Update UI
     this.updateUI();
   }
@@ -492,6 +587,7 @@ class Game {
     document.getElementById('game-over-overlay').classList.remove('hidden');
     document.getElementById('result-title').textContent = won ? '🎉 胜利！' : '💀 游戏结束';
     document.getElementById('final-score').textContent = this.score;
+    document.getElementById('max-combo-display').textContent = this.maxCombo;
     document.getElementById('restart-btn').textContent = '重新开始';
   }
 
@@ -504,9 +600,20 @@ class Game {
   }
 
   render() {
+    // Screen shake
+    let shakeX = 0, shakeY = 0;
+    if (this.shakeAmount > 0.5) {
+      shakeX = (Math.random() - 0.5) * this.shakeAmount * 2;
+      shakeY = (Math.random() - 0.5) * this.shakeAmount * 2;
+      this.shakeAmount *= this.shakeDecay;
+    }
+
+    ctx.save();
+    ctx.translate(shakeX, shakeY);
+
     // Clear
     ctx.fillStyle = '#222';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(-10, -10, canvas.width + 20, canvas.height + 20);
 
     // Draw map
     for (let r = 0; r < ROWS; r++) {
@@ -633,6 +740,29 @@ class Game {
       ctx.globalAlpha = 1;
     }
 
+    // Draw floating texts
+    for (const ft of this.floatTexts) {
+      const progress = 1 - ft.life / ft.maxLife;
+      ctx.globalAlpha = 1 - progress * 0.5;
+      ctx.fillStyle = ft.color;
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = ft.color;
+      ctx.shadowBlur = 6;
+      ctx.fillText(ft.text, ft.x, ft.y - progress * 40);
+      ctx.shadowBlur = 0;
+    }
+    ctx.globalAlpha = 1;
+
+    // Draw "GOD MODE" indicator
+    if (this.godMode) {
+      ctx.strokeStyle = 'rgba(255, 68, 68, 0.3)';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([8, 8]);
+      ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+      ctx.setLineDash([]);
+    }
+
     // Draw pause overlay
     if (this.paused) {
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
@@ -642,12 +772,15 @@ class Game {
       ctx.textAlign = 'center';
       ctx.fillText('⏸ 暂停', canvas.width / 2, canvas.height / 2);
     }
+
+    ctx.restore();
   }
 }
 
 // ---- Game Loop ----
 function startGame() {
   document.getElementById('game-over-overlay').classList.add('hidden');
+  document.getElementById('cheat-badge').classList.remove('active');
   game = new Game();
   game.updateUI();
   window.game = game; // Expose for debugging

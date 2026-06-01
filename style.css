@@ -100,6 +100,52 @@ body {
   background: #c73650;
 }
 
+.combo-row span:last-child {
+  color: #ff6b35 !important;
+  font-size: 24px !important;
+  transition: transform 0.15s;
+}
+
+.combo-row span:last-child.combo-pop {
+  transform: scale(1.6);
+}
+
+/* Floating score text */
+.float-text {
+  position: absolute;
+  color: #ffdd44;
+  font-size: 18px;
+  font-weight: bold;
+  pointer-events: none;
+  text-shadow: 0 0 8px rgba(255, 221, 68, 0.8);
+  z-index: 10;
+  animation: floatUp 1s ease-out forwards;
+}
+
+@keyframes floatUp {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-50px); }
+}
+
+/* Cheat code badge */
+#cheat-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  color: #ff4444;
+  font-size: 14px;
+  font-weight: bold;
+  text-shadow: 0 0 10px #ff0000;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+#cheat-badge.active {
+  opacity: 1;
+}
+
 #canvas-container {
   position: relative;
 }
