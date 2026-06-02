@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>坦克大战 - Tank Battle</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="game-wrapper">
+    <div id="sidebar">
+      <h1>坦克大战</h1>
+      <div class="info-panel">
+        <div class="info-row">
+          <span class="label">得分</span>
+          <span id="score-display">0</span>
+        </div>
+        <div class="info-row">
+          <span class="label">生命</span>
+          <span id="lives-display">3</span>
+        </div>
+        <div class="info-row">
+          <span class="label">关卡</span>
+          <span id="level-display">1</span>
+        </div>
+        <div class="info-row">
+          <span class="label">敌人数</span>
+          <span id="enemies-display">20</span>
+        </div>
+        <div class="info-row combo-row">
+          <span class="label">🔥 连击</span>
+          <span id="combo-display">0</span>
+        </div>
+        <div class="info-row">
+          <span class="label">🏆 最高分</span>
+          <span id="highscore-display">0</span>
+        </div>
+      </div>
+      <div class="controls-panel">
+        <h3>操作</h3>
+        <p>↑ ↓ ← → 移动</p>
+        <p>空格 / J 射击</p>
+        <p>P 暂停</p>
+      </div>
+      <button id="restart-btn">重新开始</button>
+    </div>
+    <div id="canvas-container">
+      <canvas id="gameCanvas"></canvas>
+      <div id="cheat-badge">⚡ GOD MODE</div>
+      <div id="game-over-overlay" class="hidden">
+        <div class="overlay-content">
+          <h2 id="result-title">游戏结束</h2>
+          <p>得分: <span id="final-score">0</span></p>
+          <div class="end-stats">
+            <span>关卡 <span id="level-display-end">1</span></span>
+            <span>·</span>
+            <span>击杀 <span id="kills-display">0</span></span>
+            <span>·</span>
+            <span>🔥 <span id="max-combo-display">0</span>x</span>
+          </div>
+          <p class="highscore-line">🏆 最高分: <span id="high-score-display">0</span></p>
+          <button id="play-again-btn">再来一局</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="game.js?v=5"></script>
+</body>
+</html>
