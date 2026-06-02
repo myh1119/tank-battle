@@ -1,57 +1,103 @@
-# 坦克大战 (Tank Battle)
+# 坦克大战 — Tank Battle
 
-A classic Battle City style tank battle game built with Python and Pygame.
+经典 Battle City 风格坦克大战游戏，提供 **Python (Pygame)** 和 **JavaScript (HTML5 Canvas)** 两个版本。
 
-## Features
+---
 
-- Player tank (yellow) with keyboard controls
-- Enemy tanks (red, orange, gray) with basic AI
-- 3 unique levels with brick walls, steel walls, water, and trees
-- Destructible base (eagle) that must be protected
-- Score tracking and lives system
-- Explosion animations and shield effects
-- Progressive difficulty with armored enemies
+## Python 版
 
-## How to Play
+基于 Pygame 的桌面版，完整实现经典玩法。
 
-| Key | Action |
-|-----|--------|
-| ↑ ↓ ← → | Move tank |
-| W / A / S / D | Move tank |
-| SPACE / J | Shoot |
-| ENTER | Start game / Next level |
-| ESC | Back to title / Quit |
+### 特色
 
-## Installation
+| 特性 | 说明 |
+|------|------|
+| 玩家坦克 | 黄色，键盘控制移动射击 |
+| 敌方坦克 | 红色/橙色/灰色，基础 AI 追踪与攻击 |
+| 3 个关卡 | 砖墙、钢墙、水域、树林地形 |
+| 基地防守 | 保护底部鹰旗不被摧毁 |
+| 计分系统 | 不同敌人不同分数，三命通关 |
+| 爆炸特效 | 粒子爆炸动画，出生护盾 |
+| 装甲敌人 | 需多次命中才能摧毁 |
+
+### 操作
+
+| 按键 | 功能 |
+|------|------|
+| ↑ ↓ ← → / WASD | 移动坦克 |
+| 空格 / J | 射击 |
+| ENTER | 开始 / 下一关 |
+| ESC | 返回标题 / 退出 |
+
+### 运行
 
 ```bash
 pip install -r requirements.txt
-# or if pygame-ce isn't available:
-pip install pygame-ce
 python main.py
 ```
 
-## Game Rules
+---
 
-- Destroy all enemy tanks to clear a stage
-- Protect your base (eagle flag) at the bottom center
-- You have 3 lives per game
-- Enemies spawn from the top of the map
-- Brick walls can be destroyed by bullets
-- Steel walls are indestructible
-- Armored enemies require multiple hits to destroy
+## JavaScript 版
 
-## Project Structure
+纯前端 HTML5 Canvas 实现，浏览器直接运行。
+
+### 特色
+
+| 系统 | 说明 |
+|------|------|
+| 连击系统 | 连续击杀攒连击数，每 3 连击 ×1.5 倍加分 |
+| 粒子爆炸 | 击杀/摧毁时粒子飞散效果 |
+| 无敌闪烁 | 重生后短暂无敌，坦克闪烁提示 |
+| 高分记录 | 最高分自动保存在浏览器中 |
+| 结算统计 | 游戏结束显示关卡、击杀、连击、最高分 |
+| 关卡转场 | 过关时显示 "STAGE X" 动画 |
+| GOD 彩蛋 | 游戏中输入 G O D 开启/关闭无敌 |
+
+### 操作
+
+| 按键 | 功能 |
+|------|------|
+| ↑ ↓ ← → | 移动坦克 |
+| 空格 / J | 射击 |
+| P | 暂停 |
+| G → O → D | 无敌模式（彩蛋） |
+
+### 运行
+
+直接用浏览器打开 `index.html` 即可开始游戏。
+
+或用 HTTP 服务器：
+
+```bash
+npx http-server . -p 3000
+# 打开 http://localhost:3000
+```
+
+---
+
+## 游戏规则
+
+- 消灭所有敌人坦克通关
+- 保护基地（右下角鹰旗）不被摧毁
+- 砖墙可被子弹摧毁，钢墙不可摧毁
+- 敌人从地图顶部生成
+- 每关所有敌人消灭后进入下一关
+
+## 项目结构
 
 ```
 tank-battle/
-├── main.py          # Entry point
-├── game.py          # Game loop and state management
-├── entities.py      # Tank, Bullet, Wall, Base, Explosion classes
-├── sprites.py       # Programmatic sprite generation
-├── map_data.py      # Level definitions
-├── constants.py     # Game constants and configuration
-├── requirements.txt # Dependencies
+├── main.py          # Python 入口
+├── game.py          # 游戏主循环与状态管理
+├── entities.py      # 坦克、子弹、墙体等实体类
+├── sprites.py       # 程序化精灵生成
+├── map_data.py      # 关卡地图定义
+├── constants.py     # 游戏常量配置
+├── requirements.txt # Python 依赖
+├── index.html       # JS 版入口
+├── game.js          # JS 版游戏逻辑
+├── style.css        # JS 版样式
 └── .gitignore
 ```
 
